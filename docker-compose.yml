@@ -1,0 +1,103 @@
+name: emorfiq-scheduler
+
+x-php: &php
+  build: docker/php
+  image: emorfiq-scheduler-php
+  user: "${HOST_UID:-1000}:${HOST_GID:-1000}"
+  volumes:
+    - .:/app
+  environment: &php-env
+    MYSQL_DSN: "mysql:host=mysql;port=3306;dbname=scheduler"
+    MYSQL_USER: scheduler
+    MYSQL_PASSWORD: scheduler
+    PGSQL_DSN: "pgsql:host=postgres;port=5432;dbname=scheduler"
+    PGSQL_USER: scheduler
+    PGSQL_PASSWORD: scheduler
+    REDIS_HOST: redis
+    REDIS_PORT: "6379"
+
+x-e2e-env: &e2e-env
+  APP_ENV: e2e
+  APP_DEBUG: "true"
+  DB_CONNECTION: mysql
+  DB_HOST: mysql
+  DB_PORT: "3306"
+  DB_DATABASE: scheduler
+  DB_USERNAME: scheduler
+  DB_PASSWORD: scheduler
+  CACHE_STORE: file
+  SESSION_DRIVER: array
+  SCHEDULER_MUTEX_STORE: database
+  SCHEDULER_MUTEX_DB_CONNECTION: locks
+  SCHEDULER_MUTEX_PREFIX: "e2e:"
+
+x-e2e-node: &e2e-node
+  <<: *php
+  profiles: [e2e]
+  environment: *e2e-env
+  command: ["/app/docker/scheduler-node.sh"]
+  stop_grace_period: 2s
+  depends_on:
+    e2e-init: { condition: service_completed_successfully }
+
+services:
+  php:
+    <<: *php
+    depends_on:
+      mysql: { condition: service_healthy }
+      postgres: { condition: service_healthy }
+      redis: { condition: service_healthy }
+    command: ["sleep", "infinity"]
+
+  mysql:
+    image: mysql:8.0
+    environment:
+      MYSQL_DATABASE: scheduler
+      MYSQL_USER: scheduler
+      MYSQL_PASSWORD: scheduler
+      MYSQL_ROOT_PASSWORD: root
+    tmpfs: [/var/lib/mysql]
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "127.0.0.1", "-uscheduler", "-pscheduler"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  postgres:
+    image: postgres:17-alpine
+    environment:
+      POSTGRES_DB: scheduler
+      POSTGRES_USER: scheduler
+      POSTGRES_PASSWORD: scheduler
+    tmpfs: [/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U scheduler -d scheduler"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  # --- E2E: dva "servery" se sdílenou MySQL (profil e2e) ---
+  e2e-init:
+    <<: *php
+    profiles: [e2e]
+    environment: *e2e-env
+    working_dir: /app/e2e/app
+    command: ["sh", "-c", "php artisan migrate:fresh --force && php artisan e2e:reset"]
+    depends_on:
+      mysql: { condition: service_healthy }
+
+  node1:
+    <<: *e2e-node
+    hostname: node1
+
+  node2:
+    <<: *e2e-node
+    hostname: node2

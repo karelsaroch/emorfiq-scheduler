@@ -1,0 +1,42 @@
+{
+    "name": "emorfiq/scheduler",
+    "description": "Framework-agnostic scheduler & mutex abstraction with Laravel (and crunz-ready) adapters",
+    "type": "library",
+    "license": "proprietary",
+    "require": {
+        "php": "^8.2",
+        "psr/clock": "^1.0",
+        "psr/container": "^1.1 || ^2.0",
+        "psr/log": "^2.0 || ^3.0"
+    },
+    "suggest": {
+        "ext-pdo": "PdoLockStore (MySQL / PostgreSQL / SQLite)",
+        "ext-redis": "RedisLockStore",
+        "laravel/framework": "Bridge\\Laravel – aktuální engine (^10 || ^11 || ^12)",
+        "crunzphp/crunz": "Bridge\\Crunz – alternativní engine"
+    },
+    "autoload": {
+        "psr-4": {
+            "Emorfiq\\": "src/"
+        }
+    },
+    "require-dev": {
+        "phpunit/phpunit": "^11.5",
+        "orchestra/testbench": "^9.0 || ^10.0"
+    },
+    "autoload-dev": {
+        "psr-4": {
+            "Emorfiq\\Tests\\": "tests/",
+            "Emorfiq\\E2E\\": "e2e/app/src/"
+        }
+    },
+    "scripts": {
+        "test": "phpunit",
+        "test:unit": "phpunit --testsuite unit",
+        "test:integration": "phpunit --testsuite integration",
+        "test:laravel": "phpunit --testsuite laravel"
+    },
+    "config": {
+        "sort-packages": true
+    }
+}
